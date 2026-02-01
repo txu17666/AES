@@ -1,0 +1,35 @@
+name: Keepalive with Telegram
+
+on:
+  schedule:
+    - cron: '0 0 */56 * *'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Update Heartbeat and Push
+        run: |
+          date > .keepalive
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .keepalive
+          git commit -m "chore: automated heartbeat for 60-day limit"
+          git push
+
+      - name: Send Telegram Notification
+        if: always() # 无论成功还是失败都通知，方便监控
+        run: |
+          STATUS="${{ job.status }}"
+          MESSAGE="<b>GitHub Actions 续命报告</b>%0A%0A<b>仓库:</b> ${{ github.repository }}%0A<b>结果:</b> ${STATUS}%0A<b>时间:</b> $(date '+%Y-%m-%d %H:%M:%S')"
+          
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TG_BOT_TOKEN_BH }}/sendMessage" \
+               -d "chat_id=${{ secrets.TG_CHAT_ID }}" \
+               -d "text=${MESSAGE}" \
+               -d "parse_mode=HTML"
